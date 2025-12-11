@@ -1,0 +1,11 @@
+# Core dependencies for Windows C Drive Cleaner
+pywin32>=306; sys_platform == "win32"  # Windows API access, UAC handling
+
+# Testing framework
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Development dependencies (optional)
+# black>=23.0.0        # Code formatting
+# mypy>=1.0.0          # Type checking
+# flake8>=6.0.0        # Linting

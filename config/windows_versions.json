@@ -1,0 +1,212 @@
+{
+  "version_configs": {
+    "Windows 7": {
+      "version_code": "6.1",
+      "features": {
+        "hibernation": true,
+        "fast_startup": false,
+        "windows_store": false,
+        "uac": true,
+        "directstorage": false,
+        "wsl": false,
+        "system_restore": true
+      },
+      "temp_directories": [
+        "C:\\Windows\\Temp",
+        "C:\\Windows\\SoftwareDistribution\\Download",
+        "C:\\Windows\\Prefetch",
+        "%TEMP%",
+        "%LOCALAPPDATA%\\Temp"
+      ],
+      "update_cleanup": [
+        "C:\\Windows\\$NtUninstall*",
+        "C:\\Windows\\winsxs\\pending.xml.old",
+        "C:\\Windows\\Logs\\CBS"
+      ],
+      "protected_paths": [
+        "C:\\Windows",
+        "C:\\Windows\\System32",
+        "C:\\Windows\\winsxs",
+        "C:\\Windows\\System32\\wbem"
+      ],
+      "notes": "Windows 7 支持基础的休眠功能，没有快速启动。需要特别注意 Service Pack 卸载文件夹。"
+    },
+    "Windows 8": {
+      "version_code": "6.2",
+      "features": {
+        "hibernation": true,
+        "fast_startup": true,
+        "windows_store": true,
+        "uac": true,
+        "directstorage": false,
+        "wsl": false,
+        "system_restore": true
+      },
+      "temp_directories": [
+        "C:\\Windows\\Temp",
+        "C:\\Windows\\SoftwareDistribution\\Download",
+        "C:\\Windows\\Prefetch",
+        "C:\\Windows\\AppReadiness",
+        "%TEMP%",
+        "%LOCALAPPDATA%\\Temp"
+      ],
+      "update_cleanup": [
+        "C:\\Windows\\Servicing",
+        "C:\\Windows\\Logs\\CBS"
+      ],
+      "protected_paths": [
+        "C:\\Windows",
+        "C:\\Windows\\System32",
+        "C:\\Windows\\winsxs",
+        "C:\\Windows\\AppReadiness",
+        "C:\\Windows\\System32\\wbem"
+      ],
+      "notes": "Windows 8 引入了混合启动（快速启动）功能，与休眠文件相关。"
+    },
+    "Windows 8.1": {
+      "version_code": "6.3",
+      "features": {
+        "hibernation": true,
+        "fast_startup": true,
+        "windows_store": true,
+        "uac": true,
+        "directstorage": false,
+        "wsl": false,
+        "system_restore": true
+      },
+      "temp_directories": [
+        "C:\\Windows\\Temp",
+        "C:\\Windows\\SoftwareDistribution\\Download",
+        "C:\\Windows\\Prefetch",
+        "C:\\Windows\\AppReadiness",
+        "%TEMP%",
+        "%LOCALAPPDATA%\\Temp"
+      ],
+      "update_cleanup": [
+        "C:\\Windows\\Servicing",
+        "C:\\Windows\\Logs\\CBS"
+      ],
+      "protected_paths": [
+        "C:\\Windows",
+        "C:\\Windows\\System32",
+        "C:\\Windows\\winsxs",
+        "C:\\Windows\\AppReadiness",
+        "C:\\Windows\\System32\\wbem"
+      ],
+      "notes": "Windows 8.1 改进了混合启动功能，系统稳定性有所提升。"
+    },
+    "Windows 10": {
+      "version_code": "10.0",
+      "features": {
+        "hibernation": true,
+        "fast_startup": true,
+        "windows_store": true,
+        "uac": true,
+        "directstorage": false,
+        "wsl": true,
+        "system_restore": true
+      },
+      "temp_directories": [
+        "C:\\Windows\\Temp",
+        "C:\\Windows\\SoftwareDistribution\\Download",
+        "C:\\Windows\\Prefetch",
+        "C:\\Windows\\AppReadiness",
+        "C:\\Windows\\DeliveryOptimization",
+        "C:\\Windows\\System32\\DriverStore\\Temp",
+        "C:\\Windows\\Logs",
+        "%TEMP%",
+        "%LOCALAPPDATA%\\Temp"
+      ],
+      "update_cleanup": [
+        "C:\\Windows\\Servicing",
+        "C:\\Windows\\winsxs\\backup",
+        "C:\\Windows\\Logs\\CBS",
+        "C:\\Windows\\Logs\\DISM"
+      ],
+      "protected_paths": [
+        "C:\\Windows",
+        "C:\\Windows\\System32",
+        "C:\\Windows\\winsxs",
+        "C:\\Windows\\SystemApps",
+        "C:\\Windows\\SystemResources",
+        "C:\\Windows\\System32\\DriverStore",
+        "C:\\Windows\\System32\\wbem",
+        "C:\\Windows\\ServiceProfiles"
+      ],
+      "notes": "Windows 10 引入了 UWP 应用、Windows 更新优化和 WSL 支持。需要保护更多系统组件。"
+    },
+    "Windows 11": {
+      "version_code": "10.0",
+      "minimum_build": 22000,
+      "features": {
+        "hibernation": true,
+        "fast_startup": true,
+        "windows_store": true,
+        "uac": true,
+        "directstorage": true,
+        "wsl": true,
+        "system_restore": true
+      },
+      "temp_directories": [
+        "C:\\Windows\\Temp",
+        "C:\\Windows\\SoftwareDistribution\\Download",
+        "C:\\Windows\\Prefetch",
+        "C:\\Windows\\AppReadiness",
+        "C:\\Windows\\DeliveryOptimization",
+        "C:\\Windows\\System32\\DriverStore\\Temp",
+        "C:\\Windows\\Logs",
+        "%TEMP%",
+        "%LOCALAPPDATA%\\Temp"
+      ],
+      "update_cleanup": [
+        "C:\\Windows\\Servicing",
+        "C:\\Windows\\winsxs\\backup",
+        "C:\\Windows\\Logs\\CBS",
+        "C:\\Windows\\Logs\\DISM",
+        "C:\\Windows\\System32\\DriverStore\\FileRepository\\tmp"
+      ],
+      "protected_paths": [
+        "C:\\Windows",
+        "C:\\Windows\\System32",
+        "C:\\Windows\\winsxs",
+        "C:\\Windows\\SystemApps",
+        "C:\\Windows\\SystemResources",
+        "C:\\Windows\\System32\\DriverStore",
+        "C:\\Windows\\System32\\DriverStore\\FileRepository",
+        "C:\\Windows\\System32\\wbem",
+        "C:\\Windows\\ServiceProfiles"
+      ],
+      "notes": "Windows 11 基于 Windows 10 构建版本 22000+，新增了 DirectStorage 支持和改进的 UI。系统保护要求更严格。"
+    }
+  },
+  "compatibility_matrix": {
+    "hibernation": {
+      "supported": ["Windows 7", "Windows 8", "Windows 8.1", "Windows 10", "Windows 11"],
+      "commands": {
+        "disable": "powercfg /h off",
+        "enable": "powercfg /h on",
+        "status": "powercfg /a",
+        "size": "powercfg /h /type"
+      },
+      "file_path": "C:\\hiberfil.sys"
+    },
+    "fast_startup": {
+      "supported": ["Windows 8", "Windows 8.1", "Windows 10", "Windows 11"],
+      "depends_on": "hibernation",
+      "notes": "快速启动依赖休眠功能，禁用休眠会同时禁用快速启动"
+    },
+    "windows_store": {
+      "supported": ["Windows 8", "Windows 8.1", "Windows 10", "Windows 11"],
+      "protected_paths": ["C:\\Program Files\\WindowsApps"]
+    },
+    "wsl": {
+      "supported": ["Windows 10", "Windows 11"],
+      "protected_paths": ["C:\\Users\\%USERNAME%\\.wsl", "C:\\Users\\%USERNAME%\\.wslconfig"]
+    },
+    "directstorage": {
+      "supported": ["Windows 11"],
+      "minimum_build": 22000,
+      "notes": "需要 Windows 11 和支持的硬件"
+    }
+  }
+}

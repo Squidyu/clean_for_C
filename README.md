@@ -23,9 +23,8 @@
 ### 1. 克隆项目
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Squidyu/clean_for_C.git
 cd clean_for_C
-git checkout 001-windows-c-drive-cleaner
 ```
 
 ### 2. 创建虚拟环境

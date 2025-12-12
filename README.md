@@ -151,11 +151,12 @@ clean_for_C/
 
 ## 许可证
 
-[待定]
+[![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 
 ## 联系方式
 
-[项目维护者信息]
+WX: x1297554122
+X:
 
 ---
 

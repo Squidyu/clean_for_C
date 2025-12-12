@@ -116,7 +116,7 @@ class MainWindow:
 
         # Cleaning tab
         cleaning_frame = ttk.Frame(self.notebook)
-        self.notebook.add(cleaning_frame, text="清理操作")
+        self.notebook.add(cleaning_frame, text="清理结果")
 
         # Cleaning view
         self.cleaning_view = CleaningView(cleaning_frame)
@@ -322,7 +322,6 @@ class MainWindow:
         # Set up cleaning view
         if self.cleaning_view:
             self.cleaning_view.cancellation_token = self.cancellation_event
-            self.cleaning_view.set_files_to_clean(selected_files)
             self.cleaning_view.start_cleaning(operation)
 
         # Switch to cleaning tab

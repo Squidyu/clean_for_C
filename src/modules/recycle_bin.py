@@ -83,8 +83,11 @@ class RecycleBinScanner(BaseScanner):
 
                         # Create FileInfo and add to result
                         file_info = self.create_file_info(file_path)
-                        if file_info and not self.should_skip_file(file_info):
-                            result.add_file(file_info)
+                        if file_info:
+                            # Recycle bin files are safe to delete (user already deleted them)
+                            file_info.is_protected = False
+                            if not self.should_skip_file(file_info):
+                                result.add_file(file_info)
 
                 except (OSError, PermissionError):
                     # Skip inaccessible user recycle bins
@@ -101,7 +104,8 @@ class RecycleBinScanner(BaseScanner):
         Override base method for recycle bin specific filtering.
 
         Recycle bin files are generally safe to delete since they're already
-        "deleted" from user perspective. However, we still check whitelist.
+        "deleted" from user perspective. We override whitelist protection for
+        recycle bin files.
 
         Args:
             file_info: File to check
@@ -109,6 +113,10 @@ class RecycleBinScanner(BaseScanner):
         Returns:
             True if should skip, False if should include
         """
-        # Only skip if explicitly protected by whitelist
-        # Recycle bin files are generally safe since they're already deleted
+        # Recycle bin files are safe to delete since they're already "deleted"
+        # We override whitelist protection for recycle bin content
+        if file_info.path.lower().startswith("c:\\$recycle.bin"):
+            return False
+        
+        # For other files, use the default whitelist protection
         return file_info.is_protected

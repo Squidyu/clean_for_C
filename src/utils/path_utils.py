@@ -108,7 +108,8 @@ def validate_c_drive_path(path: str) -> str:
             raise ValueError(f"Path must be within C drive: {path}")
 
         # Additional Windows-specific validation
-        if abs_path.startswith("C:\\$"):  # System metadata
+        # Allow recycle bin but block other system metadata
+        if abs_path.startswith("C:\\$") and not abs_path.lower().startswith("c:\\$recycle.bin"):
             raise ValueError(f"System metadata paths not allowed: {path}")
 
         return abs_path

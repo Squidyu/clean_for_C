@@ -196,6 +196,11 @@ class CleanerService:
                 self._cleaners["休眠文件"] = HibernationCleaner()
             except ImportError:
                 pass
+            try:
+                from cleaners.recycle_bin_cleaner import RecycleBinCleaner
+                self._cleaners["回收站"] = RecycleBinCleaner()
+            except ImportError:
+                pass
         
         return self._cleaners.get(module_name)
 

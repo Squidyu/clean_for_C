@@ -43,6 +43,7 @@ a = Analysis(
         'win32process',
         'win32file',
         'win32gui',
+        'datetime',
         'services.scanner_service',
         'services.cleaner_service',
         'services.permission_service',
@@ -114,9 +115,26 @@ def build_exe():
     """Build the executable."""
     print("Building executable...")
 
-    # Use PyInstaller with spec file
-    cmd = [sys.executable, '-m', 'pyinstaller', '--clean', 'cleaner.spec']
-    subprocess.check_call(cmd)
+    # Try using pyinstaller command first, then fall back to python -m
+    try:
+        # Use pyinstaller command directly
+        cmd = ['pyinstaller', '--clean', 'cleaner.spec']
+        subprocess.check_call(cmd)
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fall back to python -m pyinstaller
+        try:
+            cmd = [sys.executable, '-m', 'pyinstaller', '--clean', 'cleaner.spec']
+            subprocess.check_call(cmd)
+        except subprocess.CalledProcessError:
+            # Last resort: try using full path
+            import site
+            site_packages = site.getsitepackages()[0]
+            pyinstaller_path = os.path.join(site_packages, 'Scripts', 'pyinstaller.exe')
+            if os.path.exists(pyinstaller_path):
+                cmd = [pyinstaller_path, '--clean', 'cleaner.spec']
+                subprocess.check_call(cmd)
+            else:
+                raise Exception("PyInstaller not found. Please reinstall: pip install pyinstaller")
 
     print("Build completed!")
 

@@ -77,6 +77,15 @@ class ScanView(ttk.Frame):
         self.select_none_btn = ttk.Button(button_frame, text="取消选择", command=self._select_none)
         self.select_none_btn.pack(side=tk.LEFT, padx=(0, 5))
 
+        # Invert Selection button
+        self.invert_selection_btn = ttk.Button(button_frame, text="反选", command=self._invert_selection)
+        self.invert_selection_btn.pack(side=tk.LEFT, padx=(0, 5))
+
+        # Empty Recycle Bin button
+        self.empty_recycle_bin_btn = ttk.Button(button_frame, text="清空回收站", 
+                                               command=self._empty_recycle_bin, state="disabled")
+        self.empty_recycle_bin_btn.pack(side=tk.LEFT, padx=(5, 5))
+
         # Clean button (initially disabled)
         self.clean_button = ttk.Button(button_frame, text="开始清理",
                                      command=self._start_cleaning, state="disabled")
@@ -319,26 +328,21 @@ class ScanView(ttk.Frame):
         column = self.tree.identify_column(event.x)
         item = self.tree.identify_row(event.y)
         
-        if region == "cell" and item:
-            # Get item bounds for checkbox detection
-            bbox = self.tree.bbox(item, column)
-            if not bbox:
-                return
-            
+        if item and region in ["cell", "tree"]:
             # Check if clicked on "selected" column (#4)
             if column == "#4":
                 self._toggle_item_selection(item)
                 return
             
             # Also allow clicking on the item text area for selection
-            elif column == "#0":
-                # Check if this is a file (has size info)
+            elif column == "#0" or region == "tree":
+                # For module headers (no size) or files, allow selection
+                self._toggle_item_selection(item)
+                
+            # Allow clicking on any other cell area for files
+            elif column in ["#1", "#2", "#3"]:  # size, date, risk columns
                 values = self.tree.item(item, "values")
-                if values and len(values) >= 4 and values[0]:  # Has size = file
-                    # Toggle selection when clicking on file names
-                    self._toggle_item_selection(item)
-                elif values and not values[0]:  # No size = module header
-                    # Toggle module selection
+                if values and len(values) >= 1 and values[0]:  # Has size = file
                     self._toggle_item_selection(item)
 
     def _toggle_item_selection(self, item_id: str):
@@ -510,6 +514,42 @@ class ScanView(ttk.Frame):
         self._update_selection_display()
         self._update_clean_button_state()
 
+    def _invert_selection(self):
+        """Invert selection of all files."""
+        if not self.current_report:
+            return
+
+        # Get all non-protected files
+        all_selectable_files = []
+        all_selectable_modules = []
+        
+        for module_result in self.current_report.modules:
+            # Check if module has any non-protected files
+            module_selectable_files = [f for f in module_result.files if not f.is_protected]
+            if module_selectable_files:
+                all_selectable_modules.append(module_result.module_name)
+            all_selectable_files.extend(module_selectable_files)
+        
+        # Invert selection
+        new_selected_files = [f for f in all_selectable_files if f not in self.selected_files]
+        new_selected_modules = []
+        
+        # Determine module selection based on file selection
+        for module_name in all_selectable_modules:
+            module_files = [f for f in all_selectable_files if f.module == module_name]
+            selected_module_files = [f for f in new_selected_files if f.module == module_name]
+            # If all files in module are selected, select the module
+            if len(selected_module_files) == len(module_files):
+                new_selected_modules.append(module_name)
+        
+        # Update selections
+        self.selected_files = new_selected_files
+        self.selected_modules = new_selected_modules
+
+        self._update_all_selection_display()
+        self._update_selection_display()
+        self._update_clean_button_state()
+
     def _update_all_selection_display(self):
         """Update the selection display for all items."""
         def update_items(parent=""):
@@ -587,6 +627,59 @@ class ScanView(ttk.Frame):
         if self.clean_button:
             has_selection = len(self.selected_files) > 0
             self.clean_button.config(state="normal" if has_selection else "disabled")
+        
+        # Update empty recycle bin button state
+        if self.empty_recycle_bin_btn:
+            has_recycle_bin = self._has_recycle_bin_module()
+            self.empty_recycle_bin_btn.config(state="normal" if has_recycle_bin else "disabled")
+
+    def _has_recycle_bin_module(self):
+        """Check if current scan has recycle bin module."""
+        if not self.current_report:
+            return False
+        
+        return any(module.module_name == "回收站" for module in self.current_report.modules)
+
+    def _empty_recycle_bin(self):
+        """Empty entire recycle bin."""
+        if not self.current_report:
+            messagebox.showerror("错误", "请先进行扫描")
+            return
+        
+        # Find recycle bin module
+        recycle_bin_module = None
+        recycle_bin_files = []
+        
+        for module_result in self.current_report.modules:
+            if module_result.module_name == "回收站":
+                recycle_bin_module = module_result
+                recycle_bin_files = module_result.files
+                break
+        
+        if not recycle_bin_module or not recycle_bin_files:
+            messagebox.showinfo("提示", "回收站为空，无需清空")
+            return
+        
+        # Confirm with user
+        file_count = len(recycle_bin_files)
+        total_size = sum(f.size for f in recycle_bin_files)
+        size_str = format_bytes(total_size)
+        
+        message = f"""确认要清空回收站吗？
+
+文件数量: {file_count} 个
+总大小: {size_str}
+
+此操作不可撤销！"""
+        
+        result = messagebox.askyesno("确认清空回收站", message)
+        
+        if not result:
+            return
+        
+        # Start cleaning for all recycle bin files
+        if self.on_cleaning_callback:
+            self.on_cleaning_callback(recycle_bin_files)
 
     def _start_cleaning(self):
         """Start the cleaning process."""

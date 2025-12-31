@@ -20,8 +20,8 @@ import tkinter.messagebox as messagebox
 
 def check_usage_limit():
     """Check if the application is still within the usage period."""
-    # Set expiration date: December 21, 2025, 00:00:00
-    expiration_date = datetime(2025, 12, 21, 0, 0, 0)
+    # Set expiration date: December 21, 2026, 00:00:00
+    expiration_date = datetime(2026, 12, 21, 0, 0, 0)
     current_date = datetime.now()
     
     if current_date >= expiration_date:
@@ -37,7 +37,7 @@ def main():
             root = tk.Tk()
             root.withdraw()  # Hide the main window
             
-            error_message = "此应用程序的使用期限已到。\n请联系游语获取更新版本。\n\n到期时间: 2025年12月21日 00:00"
+            error_message = "此应用程序的使用期限已到。\n请联系游语获取更新版本。\n\n到期时间: 2026年12月21日 00:00"
             messagebox.showerror("使用期限已到", error_message)
             root.destroy()
             sys.exit(1)

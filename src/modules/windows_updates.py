@@ -30,6 +30,9 @@ class WindowsUpdatesScanner(BaseScanner):
         super().__init__()
         self.system_info = system_info
         self.version = self.system_info.get_windows_version()
+        # 性能优化：限制最大扫描文件数量，避免UI卡顿
+        self.max_files_per_directory = 10000  # 每个目录最多扫描10000个文件
+        self.max_total_files = 50000  # 总共最多扫描50000个文件
 
     def get_module_name(self) -> str:
         """Get module name."""
@@ -190,35 +193,66 @@ class WindowsUpdatesScanner(BaseScanner):
                 for matched_path in matching_paths:
                     if cancellation_token and cancellation_token.is_set():
                         break
-                    self._scan_single_path(matched_path, description, is_protected, result)
+                    if result.file_count >= self.max_total_files:
+                        break
+                    self._scan_single_path(matched_path, description, is_protected, result, cancellation_token)
             else:
-                self._scan_single_path(path, description, is_protected, result)
+                self._scan_single_path(path, description, is_protected, result, cancellation_token)
                 
         except Exception as e:
             # Log error but continue with other paths
             print(f"扫描路径 {path} 时出错: {e}")
 
-    def _scan_single_path(self, path: str, description: str, is_protected: bool, result: ScanResult):
+    def _scan_single_path(self, path: str, description: str, is_protected: bool, result: ScanResult, cancellation_token=None):
         """
-        Scan a single path for files.
+        Scan a single path for files with performance optimization.
 
         Args:
             path: Path to scan
             description: Description of the path
             is_protected: Whether the path is protected
             result: ScanResult to add files to
+            cancellation_token: Cancellation token
         """
         try:
+            # Check if we've reached the limit
+            if result.file_count >= self.max_total_files:
+                return
+            
             if os.path.isfile(path):
                 # Single file
                 self._add_file_to_result(path, description, is_protected, result)
             elif os.path.isdir(path):
-                # Directory - scan contents
+                # Directory - scan contents with file count limit
                 try:
+                    files_scanned_in_dir = 0
                     for root, dirs, files in os.walk(path):
+                        if cancellation_token and cancellation_token.is_set():
+                            break
+                        
+                        # Check if we've reached the limit
+                        if result.file_count >= self.max_total_files:
+                            break
+                        
+                        # Limit files per directory
+                        if files_scanned_in_dir >= self.max_files_per_directory:
+                            # Skip remaining files in this directory
+                            dirs[:] = []  # Don't recurse further
+                            continue
+                        
                         for file in files:
+                            if cancellation_token and cancellation_token.is_set():
+                                break
+                            
+                            if result.file_count >= self.max_total_files:
+                                break
+                            
+                            if files_scanned_in_dir >= self.max_files_per_directory:
+                                break
+                            
                             file_path = os.path.join(root, file)
                             self._add_file_to_result(file_path, description, is_protected, result)
+                            files_scanned_in_dir += 1
                             
                         # Skip system directories within update folders
                         dirs[:] = [d for d in dirs if not d.startswith('.') and d != 'System Volume Information']
@@ -242,16 +276,19 @@ class WindowsUpdatesScanner(BaseScanner):
         try:
             stat = os.stat(file_path)
             
-            # Skip very recent files (might be in use)
+            # Skip very recent files (might be in use) - but allow Windows Update files
+            # For Windows Update files, we can be more lenient (7 days instead of 1 day)
             import time
-            if time.time() - stat.st_mtime < 86400:  # Less than 1 day old
+            time_threshold = 7 * 86400  # 7 days for Windows Update files
+            if time.time() - stat.st_mtime < time_threshold:
                 return
             
+            from datetime import datetime
             file_info = FileInfo(
                 path=file_path,
                 size=stat.st_size,
-                last_access_time=stat.st_atime,
-                last_modified_time=stat.st_mtime,
+                last_access_time=datetime.fromtimestamp(stat.st_atime),
+                last_modified_time=datetime.fromtimestamp(stat.st_mtime),
                 module=self.get_module_name()
             )
             

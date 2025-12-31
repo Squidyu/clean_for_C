@@ -52,8 +52,30 @@ class ScanView(ttk.Frame):
         # Selection tracking
         self.selected_files: List[FileInfo] = []
         self.selected_modules: List[str] = []
+        # 使用集合存储文件路径，用于快速查找（O(1)复杂度）
+        self._selected_file_paths: set = set()
+        # UI更新节流
+        self._update_pending = False
 
         self._setup_ui()
+    
+    def _add_to_selection(self, file_info: FileInfo):
+        """Add file to selection and update path set."""
+        if file_info not in self.selected_files:
+            self.selected_files.append(file_info)
+            self._selected_file_paths.add(file_info.path.replace("\\\\", "\\"))
+    
+    def _remove_from_selection(self, file_info: FileInfo):
+        """Remove file from selection and update path set."""
+        if file_info in self.selected_files:
+            self.selected_files.remove(file_info)
+            self._selected_file_paths.discard(file_info.path.replace("\\\\", "\\"))
+    
+    def _clear_selection(self):
+        """Clear all selections."""
+        self.selected_files.clear()
+        self._selected_file_paths.clear()
+        self.selected_modules.clear()
 
     def _setup_ui(self):
         """Set up the user interface."""
@@ -276,8 +298,7 @@ class ScanView(ttk.Frame):
             for item in self.tree.get_children():
                 self.tree.delete(item)
 
-        self.selected_files = []
-        self.selected_modules = []
+        self._clear_selection()
         self.selection_label.config(text="未选择任何文件")
         
         # 确保清理按钮被禁用
@@ -365,9 +386,11 @@ class ScanView(ttk.Frame):
             # It's a file item
             self._toggle_file_selection(item_id, item_text)
 
-        # Update UI immediately
-        self._update_selection_display()
-        self._update_clean_button_state()
+        # Schedule UI update to avoid blocking (especially for large selections)
+        self.after_idle(lambda: (
+            self._update_selection_display(),
+            self._update_clean_button_state()
+        ))
 
     def _toggle_module_selection(self, module_item_id: str, module_name: str):
         """Toggle selection of all files in a module."""
@@ -378,7 +401,9 @@ class ScanView(ttk.Frame):
             # Deselect module
             self.selected_modules.remove(clean_module_name)
             # Remove all files from this module
-            self.selected_files = [f for f in self.selected_files if f.module != clean_module_name]
+            files_to_remove = [f for f in self.selected_files if f.module == clean_module_name]
+            for file_info in files_to_remove:
+                self._remove_from_selection(file_info)
         else:
             # Select module
             self.selected_modules.append(clean_module_name)
@@ -387,8 +412,8 @@ class ScanView(ttk.Frame):
                 for module_result in self.current_report.modules:
                     if module_result.module_name == clean_module_name:
                         for file_info in module_result.files:
-                            if not file_info.is_protected and file_info not in self.selected_files:
-                                self.selected_files.append(file_info)
+                            if not file_info.is_protected:
+                                self._add_to_selection(file_info)
                         break
 
         # Update tree display
@@ -452,29 +477,38 @@ class ScanView(ttk.Frame):
         # Toggle selection
         was_selected = target_file in self.selected_files
         if was_selected:
-            self.selected_files.remove(target_file)
+            self._remove_from_selection(target_file)
         else:
-            self.selected_files.append(target_file)
+            self._add_to_selection(target_file)
 
         # Update tree display
         self._update_file_selection_display(file_item_id, not was_selected)
 
     def _update_module_selection_display(self, module_item_id: str, is_selected: bool):
-        """Update the display of a module's selection state."""
-        # Update all child items (only non-protected files)
+        """Update the display of a module's selection state with batch optimization."""
+        # Collect all items to update
+        items_to_update = []
         for child_id in self.tree.get_children(module_item_id):
-            # Check if this file is protected
             item_tags = self.tree.item(child_id, "tags") or []
             is_protected = "protected" in item_tags
-            
-            child_values = list(self.tree.item(child_id, "values"))
-            if len(child_values) >= 4:
-                # Protected files should never be shown as selected
+            child_values = self.tree.item(child_id, "values")
+            if child_values and len(child_values) >= 4:
+                items_to_update.append((child_id, is_protected, list(child_values)))
+        
+        # Batch update for performance (update in chunks of 100)
+        batch_size = 100
+        for i in range(0, len(items_to_update), batch_size):
+            batch = items_to_update[i:i + batch_size]
+            for child_id, is_protected, child_values in batch:
                 if is_protected:
                     child_values[3] = "☐"
                 else:
                     child_values[3] = "☑" if is_selected else "☐"
                 self.tree.item(child_id, values=child_values)
+            
+            # Allow UI to process events between batches for large modules
+            if i + batch_size < len(items_to_update) and len(items_to_update) > 500:
+                self.update_idletasks()
 
     def _update_file_selection_display(self, file_item_id: str, is_selected: bool):
         """Update the display of a file's selection state."""
@@ -484,31 +518,40 @@ class ScanView(ttk.Frame):
             self.tree.item(file_item_id, values=values)
 
     def _select_all(self):
-        """Select all available files."""
+        """Select all available files with performance optimization."""
         if not self.current_report:
             return
 
-        self.selected_files.clear()
-        self.selected_modules.clear()
+        # Clear selection first
+        self._clear_selection()
 
+        # Batch collect all files to select
+        files_to_select = []
+        modules_to_select = []
+        
         for module_result in self.current_report.modules:
             # Check if module has any non-protected files
-            has_selectable_files = any(not f.is_protected for f in module_result.files)
-            if has_selectable_files:
-                self.selected_modules.append(module_result.module_name)
-            
-            for file_info in module_result.files:
-                if not file_info.is_protected:
-                    self.selected_files.append(file_info)
+            module_files = [f for f in module_result.files if not f.is_protected]
+            if module_files:
+                modules_to_select.append(module_result.module_name)
+                files_to_select.extend(module_files)
 
-        self._update_all_selection_display()
-        self._update_selection_display()
-        self._update_clean_button_state()
+        # Batch add to selection (more efficient than one-by-one)
+        self.selected_modules = modules_to_select
+        self.selected_files = files_to_select
+        # Batch update path set
+        self._selected_file_paths = {f.path.replace("\\\\", "\\") for f in files_to_select}
+
+        # Schedule UI update to avoid blocking
+        self.after_idle(lambda: (
+            self._update_all_selection_display(),
+            self._update_selection_display(),
+            self._update_clean_button_state()
+        ))
 
     def _select_none(self):
         """Deselect all files."""
-        self.selected_files.clear()
-        self.selected_modules.clear()
+        self._clear_selection()
 
         self._update_all_selection_display()
         self._update_selection_display()
@@ -543,33 +586,98 @@ class ScanView(ttk.Frame):
                 new_selected_modules.append(module_name)
         
         # Update selections
-        self.selected_files = new_selected_files
+        self._clear_selection()
         self.selected_modules = new_selected_modules
+        for file_info in new_selected_files:
+            self._add_to_selection(file_info)
 
         self._update_all_selection_display()
         self._update_selection_display()
         self._update_clean_button_state()
 
     def _update_all_selection_display(self):
-        """Update the selection display for all items."""
-        def update_items(parent=""):
-            for item_id in self.tree.get_children(parent):
-                values = self.tree.item(item_id, "values")
-                if values and len(values) >= 4:
-                    # Check if this item should be selected
-                    item_text = self.tree.item(item_id, "text")
-                    is_selected = self._is_item_selected(item_id, item_text)
+        """Update the selection display for all items with performance optimization."""
+        # Use delayed batch update to avoid UI freezing with large file counts
+        if self._update_pending:
+            return
+        
+        self._update_pending = True
+        
+        def update_items_batch(parent="", batch_size=100):
+            """Update items in batches to avoid blocking UI."""
+            items_to_update = []
+            
+            def collect_items(p=""):
+                for item_id in self.tree.get_children(p):
+                    values = self.tree.item(item_id, "values")
+                    if values and len(values) >= 4:
+                        item_text = self.tree.item(item_id, "text")
+                        is_selected = self._is_item_selected(item_id, item_text)
+                        items_to_update.append((item_id, is_selected, values))
+                    collect_items(item_id)
+            
+            collect_items(parent)
+            
+            # Update in batches
+            for i in range(0, len(items_to_update), batch_size):
+                batch = items_to_update[i:i + batch_size]
+                for item_id, is_selected, values in batch:
                     values = list(values)
-                    # Ensure we have 4 columns
                     if len(values) == 3:
                         values.append("")
                     values[3] = "☑" if is_selected else "☐"
                     self.tree.item(item_id, values=values)
-
-                # Recursively update children
-                update_items(item_id)
-
-        update_items()
+                
+                # Allow UI to process events between batches
+                if i + batch_size < len(items_to_update):
+                    self.after(1, lambda: None)  # Yield to event loop
+        
+        # Schedule update to avoid blocking
+        self.after_idle(lambda: self._do_update_all_selection_display())
+    
+    def _do_update_all_selection_display(self):
+        """Actually perform the update."""
+        try:
+            items_to_update = []
+            
+            def collect_items(parent=""):
+                for item_id in self.tree.get_children(parent):
+                    values = self.tree.item(item_id, "values")
+                    if values and len(values) >= 4:
+                        item_text = self.tree.item(item_id, "text")
+                        is_selected = self._is_item_selected(item_id, item_text)
+                        items_to_update.append((item_id, is_selected, list(values)))
+                    collect_items(item_id)
+            
+            collect_items()
+            
+            # Update in batches of 50 to avoid blocking
+            batch_size = 50
+            total = len(items_to_update)
+            
+            def update_batch(start_idx):
+                end_idx = min(start_idx + batch_size, total)
+                for i in range(start_idx, end_idx):
+                    item_id, is_selected, values = items_to_update[i]
+                    if len(values) == 3:
+                        values.append("")
+                    values[3] = "☑" if is_selected else "☐"
+                    self.tree.item(item_id, values=values)
+                
+                if end_idx < total:
+                    # Schedule next batch
+                    self.after(1, lambda: update_batch(end_idx))
+                else:
+                    self._update_pending = False
+                    self.update_idletasks()
+            
+            if items_to_update:
+                update_batch(0)
+            else:
+                self._update_pending = False
+        except Exception as e:
+            print(f"Error updating selection display: {e}")
+            self._update_pending = False
 
     def _is_item_selected(self, item_id: str, item_text: str) -> bool:
         """Check if an item is currently selected."""
@@ -580,7 +688,7 @@ class ScanView(ttk.Frame):
             clean_module_name = item_text.split(" (")[0]
             return clean_module_name in self.selected_modules
 
-        # It's a file - check if the file is in selected_files
+        # It's a file - use set for O(1) lookup instead of O(n) list iteration
         item_tags = self.tree.item(item_id, "tags") or []
         file_path = None
         
@@ -593,13 +701,10 @@ class ScanView(ttk.Frame):
                 file_path = tag[5:]
                 break
         
-        # If we found a path, check if it's in selected_files
+        # Use set for fast lookup (O(1) instead of O(n))
         if file_path:
-            for selected_file in self.selected_files:
-                # Handle path normalization for comparison
-                if (selected_file.path == file_path or 
-                    selected_file.path.replace("\\\\", "\\") == file_path.replace("\\\\", "\\")):
-                    return True
+            normalized_path = file_path.replace("\\\\", "\\")
+            return normalized_path in self._selected_file_paths
 
         return False
 
@@ -682,13 +787,28 @@ class ScanView(ttk.Frame):
             self.on_cleaning_callback(recycle_bin_files)
 
     def _start_cleaning(self):
-        """Start the cleaning process."""
+        """Start the cleaning process with async handling to avoid UI blocking."""
         if not self.selected_files:
             return
 
+        # Disable button immediately to prevent double-click
+        if self.clean_button:
+            self.clean_button.config(state="disabled")
+        
+        # Schedule callback to run asynchronously to avoid blocking UI
+        # This allows the button click to return immediately
+        self.after_idle(lambda: self._do_start_cleaning())
+    
+    def _do_start_cleaning(self):
+        """Actually start the cleaning process (called asynchronously)."""
+        if not self.selected_files:
+            return
+        
         # Call the cleaning callback if provided
         if self.on_cleaning_callback:
-            self.on_cleaning_callback(self.selected_files)
+            # Use copy to avoid issues if selection changes
+            files_to_clean = self.selected_files.copy()
+            self.on_cleaning_callback(files_to_clean)
 
     def expand_all_modules(self):
         """Expand all module nodes."""

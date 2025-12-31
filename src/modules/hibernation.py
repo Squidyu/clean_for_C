@@ -11,6 +11,7 @@ from modules.base_scanner import BaseScanner
 from models.file_info import FileInfo
 from models.hibernation_file_info import HibernationFileInfo
 from utils.path_utils import validate_c_drive_path
+from utils.system_info import system_info, WindowsVersion
 
 
 class HibernationScanner(BaseScanner):
@@ -65,12 +66,24 @@ class HibernationScanner(BaseScanner):
             hibernation_info = self._check_hibernation_file()
 
             if hibernation_info.exists:
+                # Get file timestamps from filesystem
+                try:
+                    stat = os.stat(hibernation_info.file_path)
+                    from datetime import datetime
+                    last_access = datetime.fromtimestamp(stat.st_atime)
+                    last_modified = datetime.fromtimestamp(stat.st_mtime)
+                except (OSError, IOError):
+                    # Fallback to current time if can't get timestamps
+                    from datetime import datetime
+                    last_access = datetime.now()
+                    last_modified = datetime.now()
+                
                 # Create FileInfo for the hibernation file
                 file_info = FileInfo(
                     path=hibernation_info.file_path,
                     size=hibernation_info.file_size_bytes,
-                    last_access_time=hibernation_info.last_checked,
-                    last_modified_time=hibernation_info.last_checked,
+                    last_access_time=last_access,
+                    last_modified_time=last_modified,
                     module=self.get_module_name()
                 )
 
@@ -213,6 +226,94 @@ class HibernationScanner(BaseScanner):
         """
         hibernation_info = self._check_hibernation_file()
         return hibernation_info.exists  # Can always delete if file exists
+    
+    def _delete_hibernation_file_enhanced(self, file_path: str) -> dict:
+        """
+        Delete hibernation file using multiple strategies.
+        
+        Args:
+            file_path: Path to hibernation file
+            
+        Returns:
+            Dict with success status and error message
+        """
+        max_attempts = 5
+        
+        # Strategy 1: Standard deletion with retry
+        for attempt in range(max_attempts):
+            try:
+                import stat
+                # Remove read-only attribute
+                try:
+                    current_mode = os.stat(file_path).st_mode
+                    os.chmod(file_path, stat.S_IWRITE | current_mode)
+                except Exception:
+                    pass
+                
+                os.remove(file_path)
+                if not os.path.exists(file_path):
+                    return {'success': True, 'error': ''}
+            except PermissionError as e:
+                if attempt < max_attempts - 1:
+                    time.sleep(1)
+                    continue
+            except OSError as e:
+                error_str = str(e).lower()
+                if "being used" in error_str or "被另一个程序使用" in error_str:
+                    if attempt < max_attempts - 1:
+                        time.sleep(2)
+                        continue
+                else:
+                    if attempt < max_attempts - 1:
+                        time.sleep(1)
+                        continue
+        
+        # Strategy 2: Use attrib command to remove attributes
+        try:
+            subprocess.run(['attrib', '-R', '-S', '-H', file_path],
+                          capture_output=True, text=True, shell=True, timeout=5)
+            # Try deletion again
+            try:
+                os.remove(file_path)
+                if not os.path.exists(file_path):
+                    return {'success': True, 'error': ''}
+            except Exception:
+                pass
+        except Exception:
+            pass
+        
+        # Strategy 3: Use takeown and icacls to gain ownership
+        try:
+            # Take ownership
+            subprocess.run(['takeown', '/F', file_path],
+                          capture_output=True, text=True, shell=True, timeout=5)
+            # Grant full control
+            subprocess.run(['icacls', file_path, '/grant', 'Administrators:F'],
+                          capture_output=True, text=True, shell=True, timeout=5)
+            # Try deletion again
+            try:
+                os.remove(file_path)
+                if not os.path.exists(file_path):
+                    return {'success': True, 'error': ''}
+            except Exception as e:
+                pass
+        except Exception:
+            pass
+        
+        # Strategy 4: Use subprocess del command
+        try:
+            result = subprocess.run(['cmd', '/c', 'del', '/F', '/Q', file_path],
+                                  capture_output=True, text=True, shell=True, timeout=10)
+            if result.returncode == 0 and not os.path.exists(file_path):
+                return {'success': True, 'error': ''}
+        except Exception:
+            pass
+        
+        # All strategies failed
+        return {
+            'success': False,
+            'error': '无法删除休眠文件。可能原因：1) 文件被系统占用 2) 需要重启系统 3) 权限不足。建议：重启系统后以管理员身份运行程序再次尝试。'
+        }
 
     def disable_hibernation_and_clean(self) -> dict:
         """
@@ -264,11 +365,11 @@ class HibernationScanner(BaseScanner):
 
             # Check if file was deleted
             if os.path.exists(hibernation_info.file_path):
-                # File still exists, try to delete it directly
-                try:
-                    os.remove(hibernation_info.file_path)
-                except (OSError, IOError) as e:
-                    result['message'] = f'无法删除休眠文件，可能需要管理员权限: {e}'
+                # File still exists, try to delete it directly with multiple strategies
+                deleted = self._delete_hibernation_file_enhanced(hibernation_info.file_path)
+                
+                if not deleted['success']:
+                    result['message'] = deleted['error']
                     return result
 
             # Final verification

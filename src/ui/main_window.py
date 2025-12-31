@@ -307,14 +307,28 @@ class MainWindow:
             if not self._confirm_hibernation_deletion():
                 return
 
-        # Create cleaning operation
+        # Create cleaning operation (use copy to avoid blocking)
         operation = CleaningOperation()
-        for file_info in selected_files:
-            operation.add_selected_file(file_info)
+        # Batch add files for better performance
+        operation.selected_files = selected_files.copy()
 
-        # Predict space
-        predicted_space = cleaner_service.predict_space(selected_files)
-        operation.predicted_space_bytes = predicted_space
+        # Predict space in background to avoid blocking UI
+        def predict_space_async():
+            try:
+                predicted_space = cleaner_service.predict_space(selected_files)
+                self.root.after(0, lambda: self._on_space_predicted(operation, predicted_space))
+            except Exception as e:
+                # If prediction fails, use sum of file sizes as fallback
+                predicted_space = sum(f.size for f in selected_files)
+                self.root.after(0, lambda: self._on_space_predicted(operation, predicted_space))
+        
+        # Start space prediction in background
+        prediction_thread = threading.Thread(target=predict_space_async)
+        prediction_thread.daemon = True
+        prediction_thread.start()
+        
+        # Use estimated space immediately (sum of file sizes)
+        operation.predicted_space_bytes = sum(f.size for f in selected_files)
 
         # Create cancellation token for cleaning
         self.cancellation_event = threading.Event()
@@ -333,6 +347,10 @@ class MainWindow:
         self.cleaning_thread = threading.Thread(target=self._perform_cleaning)
         self.cleaning_thread.daemon = True
         self.cleaning_thread.start()
+    
+    def _on_space_predicted(self, operation, predicted_space):
+        """Update operation with predicted space."""
+        operation.predicted_space_bytes = predicted_space
 
     def _perform_cleaning(self):
         """Perform the actual cleaning in a background thread."""

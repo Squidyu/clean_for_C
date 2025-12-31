@@ -7,13 +7,13 @@ hibernation before attempting to delete the file.
 
 import os
 import subprocess
+import time
 from typing import Optional
-from clean_holders.base_cleaner import BaseCleaner
 from models.file_info import FileInfo
 from modules.hibernation import HibernationScanner
 
 
-class HibernationCleaner(BaseCleaner):
+class HibernationCleaner:
     """
     Cleaner for Windows hibernation file.
     

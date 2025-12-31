@@ -7,9 +7,11 @@ This is a special system file that enables Windows hibernation/sleep functionali
 
 import os
 import subprocess
+import time
 from modules.base_scanner import BaseScanner
 from models.file_info import FileInfo
 from models.hibernation_file_info import HibernationFileInfo
+from models.scan_result import ScanResult
 from utils.path_utils import validate_c_drive_path
 from utils.system_info import system_info, WindowsVersion
 

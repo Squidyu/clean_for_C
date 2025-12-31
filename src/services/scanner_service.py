@@ -18,6 +18,14 @@ from modules.recycle_bin import RecycleBinScanner
 from modules.large_files import LargeFilesScanner
 from modules.app_remnants import AppRemnantsScanner
 from modules.hibernation import HibernationScanner
+from modules.windows_defender_cache import WindowsDefenderCacheScanner
+from modules.windows_store_cache import WindowsStoreCacheScanner
+from modules.onedrive_cache import OneDriveCacheScanner
+from modules.teams_cache import TeamsCacheScanner
+from modules.windows_search_index import WindowsSearchIndexScanner
+from modules.thumbnail_cache import ThumbnailCacheScanner
+from modules.font_cache import FontCacheScanner
+from modules.directx_shader_cache import DirectXShaderCacheScanner
 
 
 class ScannerService:
@@ -53,7 +61,15 @@ class ScannerService:
             "回收站": RecycleBinScanner(),
             "大文件扫描": LargeFilesScanner(),
             "应用残留": AppRemnantsScanner(),
-            "休眠文件": HibernationScanner()
+            "休眠文件": HibernationScanner(),
+            "Windows Defender 缓存": WindowsDefenderCacheScanner(),
+            "Windows Store 缓存": WindowsStoreCacheScanner(),
+            "OneDrive 缓存": OneDriveCacheScanner(),
+            "Microsoft Teams 缓存": TeamsCacheScanner(),
+            "Windows Search 索引": WindowsSearchIndexScanner(),
+            "缩略图缓存": ThumbnailCacheScanner(),
+            "字体缓存": FontCacheScanner(),
+            "DirectX Shader Cache": DirectXShaderCacheScanner()
         }
 
     def scan_all_modules(self, cancellation_token: Optional[threading.Event] = None,
@@ -214,7 +230,16 @@ class ScannerService:
             "第三方应用缓存": "VSCode、JetBrains、微信等应用的缓存文件",
             "回收站": "已删除但仍可恢复的文件",
             "大文件扫描": "超过设定大小阈值的大文件",
-            "应用残留": "卸载后残留的目录和文件"
+            "应用残留": "卸载后残留的目录和文件",
+            "休眠文件": "Windows 休眠文件 (hiberfil.sys)",
+            "Windows Defender 缓存": "Windows Defender 扫描缓存和定义更新缓存 (Windows 10/11)",
+            "Windows Store 缓存": "Windows Store (UWP) 应用缓存文件",
+            "OneDrive 缓存": "Microsoft OneDrive 同步缓存和日志文件",
+            "Microsoft Teams 缓存": "Microsoft Teams 应用缓存、媒体缓存和日志",
+            "Windows Search 索引": "Windows Search 索引临时文件和缓存 (不包括活动数据库)",
+            "缩略图缓存": "Windows 缩略图缓存数据库 (thumbcache_*.db, thumbs.db)",
+            "字体缓存": "Windows 字体预览缓存和临时字体文件",
+            "DirectX Shader Cache": "DirectX 着色器缓存 (游戏和应用渲染缓存)"
         }
 
         return descriptions.get(module_name, f"{module_name} 模块")

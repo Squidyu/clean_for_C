@@ -4,7 +4,7 @@
 
 ## 功能特性
 
-- **8 类模块化扫描**：系统垃圾、Windows 更新残留、浏览器缓存、第三方应用缓存、回收站、大文件、应用残留、休眠文件
+- **16 类模块化扫描**：系统垃圾、Windows 更新残留、浏览器缓存、第三方应用缓存、回收站、大文件、应用残留、休眠文件、Windows Defender 缓存、Windows Store 缓存、OneDrive 缓存、Microsoft Teams 缓存、Windows Search 索引、缩略图缓存、字体缓存、DirectX Shader Cache
 - **安全第一**：白名单保护关键系统文件，明确风险提示
 - **选择性清理**：用户可精确选择要清理的模块和文件
 - **实时反馈**：扫描和清理过程显示进度和预计/实际释放空间
@@ -87,6 +87,7 @@ clean_for_C/
 
 ### 扫描模块 (modules/)
 
+#### 基础模块
 - **BaseScanner**: 扫描器基类，定义统一接口
 - **SystemJunkScanner**: 扫描系统临时文件
 - **WindowsUpdatesScanner**: 扫描 Windows 更新残留（支持多版本）
@@ -96,6 +97,16 @@ clean_for_C/
 - **LargeFilesScanner**: 扫描大文件
 - **AppRemnantsScanner**: 扫描应用残留
 - **HibernationScanner**: 扫描休眠文件（版本感知）
+
+#### 新增缓存清理模块
+- **WindowsDefenderCacheScanner**: 扫描 Windows Defender 扫描缓存和定义更新缓存（Windows 10/11）
+- **WindowsStoreCacheScanner**: 扫描 Windows Store (UWP) 应用缓存文件
+- **OneDriveCacheScanner**: 扫描 Microsoft OneDrive 同步缓存和日志文件
+- **TeamsCacheScanner**: 扫描 Microsoft Teams 应用缓存、媒体缓存和日志
+- **WindowsSearchIndexScanner**: 扫描 Windows Search 索引临时文件和缓存（不包括活动数据库）
+- **ThumbnailCacheScanner**: 扫描 Windows 缩略图缓存数据库（thumbcache_*.db, thumbs.db）
+- **FontCacheScanner**: 扫描 Windows 字体预览缓存和临时字体文件
+- **DirectXShaderCacheScanner**: 扫描 DirectX 着色器缓存（支持 AMD、NVIDIA、Intel GPU）
 
 ### 服务层 (services/)
 
